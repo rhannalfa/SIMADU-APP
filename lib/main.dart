@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // 1. Impor package
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'auth_gate.dart';
+import 'login/auth_login/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
