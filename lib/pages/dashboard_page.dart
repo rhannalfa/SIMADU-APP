@@ -1,30 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// [1] MODEL DATA: Membuat class untuk merepresentasikan data anak.
-// Ini adalah praktik yang baik untuk mengelola data yang terstruktur.
+// [MODIFIKASI 1]: Model Data disesuaikan dengan struktur tabel 'children' di Supabase.
+// - Nama properti diubah (e.g., nama -> name).
+// - Menambahkan properti 'nik'.
+// - Tipe data disesuaikan (e.g., id menjadi int, birth_date menjadi DateTime).
+// - Menghapus 'statusImunisasi' karena tidak ada di tabel.
 class Anak {
-  final String id;
-  final String nama;
-  final int umurBulan;
-  final double beratBadan;
-  final double tinggiBadan;
-  final String statusImunisasi;
-  final String fotoUrl;
+  final int id; // Tipe data id di database adalah int8 (integer)
+  final String name;
+  final DateTime birth_date;
+  final String gender;
+  final double birth_weight;
+  final double birth_height;
+  final String? blood_type; // Nullable jika bisa kosong
+  final String? photo;      // Nullable jika bisa kosong
+  final String? nik;        // Nullable jika bisa kosong
 
   Anak({
     required this.id,
-    required this.nama,
-    required this.umurBulan,
-    required this.beratBadan,
-    required this.tinggiBadan,
-    required this.statusImunisasi,
-    required this.fotoUrl,
+    required this.name,
+    required this.birth_date,
+    required this.gender,
+    required this.birth_weight,
+    required this.birth_height,
+    this.blood_type,
+    this.photo,
+    this.nik,
   });
+
+  // Factory constructor untuk membuat objek Anak dari data Map (JSON) yang diterima dari Supabase.
+  factory Anak.fromMap(Map<String, dynamic> map) {
+    return Anak(
+      id: map['id'],
+      name: map['name'] as String,
+      birth_date: DateTime.parse(map['birth_date'] as String),
+      gender: map['gender'] as String,
+      // Konversi dari numeric/double
+      birth_weight: (map['birth_weight'] as num).toDouble(),
+      birth_height: (map['birth_height'] as num).toDouble(),
+      blood_type: map['blood_type'] as String?,
+      photo: map['photo'] as String?,
+      nik: map['nik'] as String?,
+    );
+  }
 }
 
-// [2] STATEFUL WIDGET: Mengubah menjadi StatefulWidget
-// agar dapat mengelola data dinamis (daftar anak).
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -33,59 +54,59 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  // [3] DUMMY DATA: Untuk keperluan desain, kita gunakan data statis dulu.
-  // Nantinya, data ini bisa Anda ambil dari database Supabase.
-  final List<Anak> _dataAnak = [
-    Anak(
-      id: '001',
-      nama: 'Aisyah Putri',
-      umurBulan: 12,
-      beratBadan: 9.5,
-      tinggiBadan: 74.0,
-      statusImunisasi: 'Lengkap',
-      fotoUrl: 'https://i.pravatar.cc/150?img=1', // Placeholder image
-    ),
-    Anak(
-      id: '002',
-      nama: 'Budi Santoso',
-      umurBulan: 15,
-      beratBadan: 10.2,
-      tinggiBadan: 78.5,
-      statusImunisasi: 'Dasar',
-      fotoUrl: 'https://i.pravatar.cc/150?img=5', // Placeholder image
-    ),
-    Anak(
-      id: '003',
-      nama: 'Citra Lestari',
-      umurBulan: 8,
-      beratBadan: 8.1,
-      tinggiBadan: 68.0,
-      statusImunisasi: 'Lengkap',
-      fotoUrl: 'https://i.pravatar.cc/150?img=3', // Placeholder image
-    ),
-    Anak(
-      id: '004',
-      nama: 'Daffa Akbar',
-      umurBulan: 24,
-      beratBadan: 12.5,
-      tinggiBadan: 86.0,
-      statusImunisasi: 'Booster',
-      fotoUrl: 'https://i.pravatar.cc/150?img=8', // Placeholder image
-    ),
-  ];
+  // [MODIFIKASI 2]: Data dummy dihapus dan diganti dengan Future.
+  // Future ini akan menampung proses pengambilan data dari Supabase.
+  late final Future<List<Anak>> _anakFuture;
 
+  @override
+  void initState() {
+    super.initState();
+    // Memanggil fungsi untuk mengambil data saat halaman pertama kali dibuka.
+    _anakFuture = _getAnakData();
+  }
+
+  // [MODIFIKASI 3]: Fungsi baru untuk mengambil data dari Supabase.
+  // Fungsi ini bersifat async dan akan mengembalikan List<Anak> di masa depan (Future).
+  Future<List<Anak>> _getAnakData() async {
+    // Mengambil data dari tabel 'children', diurutkan berdasarkan created_at terbaru.
+    final response = await Supabase.instance.client
+        .from('children')
+        .select()
+        .order('created_at', ascending: false);
+
+    // Supabase mengembalikan List<Map<String, dynamic>>.
+    // Kita perlu mengubahnya menjadi List<Anak> menggunakan factory constructor.
+    final List<Anak> anakList = response.map((data) {
+      return Anak.fromMap(data);
+    }).toList();
+
+    return anakList;
+  }
+
+  // Fungsi untuk menghitung umur dalam bulan dari tanggal lahir.
+  int _calculateAgeInMonths(DateTime birthDate) {
+    final now = DateTime.now();
+    int yearDiff = now.year - birthDate.year;
+    int monthDiff = now.month - birthDate.month;
+    if (monthDiff < 0) {
+      yearDiff--;
+      monthDiff += 12;
+    }
+    return yearDiff * 12 + monthDiff;
+  }
+  
   Future<void> _logout() async {
-    // Fungsi logout tetap sama
     try {
       await Supabase.instance.client.auth.signOut();
     } catch (e) {
-      // Menangani error jika terjadi
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal logout: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal logout: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -102,20 +123,42 @@ class _DashboardPageState extends State<DashboardPage> {
           )
         ],
       ),
-      // [4] BODY UTAMA: Menggunakan ListView.builder untuk menampilkan daftar data
-      body: ListView.builder(
-        padding: const EdgeInsets.all(12.0),
-        itemCount: _dataAnak.length,
-        itemBuilder: (context, index) {
-          final anak = _dataAnak[index];
-          // Setiap item di list akan menjadi widget Card yang kita buat di bawah
-          return _buildAnakCard(anak);
+      // [MODIFIKASI 4]: Menggunakan FutureBuilder untuk menampilkan data.
+      // Widget ini akan "membangun" UI berdasarkan status dari _anakFuture.
+      body: FutureBuilder<List<Anak>>(
+        future: _anakFuture,
+        builder: (context, snapshot) {
+          // 1. Saat data sedang dimuat
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          // 2. Jika terjadi error saat memuat data
+          if (snapshot.hasError) {
+            return Center(child: Text('Terjadi error: ${snapshot.error}'));
+          }
+          // 3. Jika data berhasil dimuat
+          if (snapshot.hasData) {
+            final dataAnak = snapshot.data!;
+            // Jika tidak ada data di database
+            if (dataAnak.isEmpty) {
+              return const Center(child: Text('Belum ada data anak.'));
+            }
+            // Jika ada data, tampilkan dalam ListView
+            return ListView.builder(
+              padding: const EdgeInsets.all(12.0),
+              itemCount: dataAnak.length,
+              itemBuilder: (context, index) {
+                final anak = dataAnak[index];
+                return _buildAnakCard(anak);
+              },
+            );
+          }
+          // State default (seharusnya tidak pernah terjadi)
+          return const Center(child: Text('Memulai...'));
         },
       ),
-      // [5] FLOATING ACTION BUTTON: Tombol untuk menambah data baru
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Implementasi fungsi tambah data anak
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Fitur Tambah Data Anak')),
           );
@@ -126,18 +169,21 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // [6] WIDGET KARTU ANAK: Widget terpisah untuk membuat tampilan per anak
-  // Ini membuat kode utama (build method) lebih rapi dan mudah dibaca.
+  // [MODIFIKASI 5]: Widget kartu disesuaikan dengan model data yang baru.
   Widget _buildAnakCard(Anak anak) {
+    // Hitung umur dari tanggal lahir
+    final umurBulan = _calculateAgeInMonths(anak.birth_date);
+    // URL foto default jika data photo di Supabase kosong (null)
+    final fotoUrl = anak.photo ?? 'https://i.pravatar.cc/150?u=${anak.id}';
+
     return Card(
       elevation: 4.0,
       margin: const EdgeInsets.only(bottom: 16.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
       child: InkWell(
         onTap: () {
-          // TODO: Implementasi navigasi ke halaman detail anak
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Melihat detail ${anak.nama}')),
+            SnackBar(content: Text('Melihat detail ${anak.name}')),
           );
         },
         borderRadius: BorderRadius.circular(15.0),
@@ -146,12 +192,11 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Bagian Header: Foto & Nama ---
               Row(
                 children: [
                   CircleAvatar(
                     radius: 30,
-                    backgroundImage: NetworkImage(anak.fotoUrl),
+                    backgroundImage: NetworkImage(fotoUrl),
                     backgroundColor: Colors.grey[200],
                   ),
                   const SizedBox(width: 16.0),
@@ -160,14 +205,14 @@ class _DashboardPageState extends State<DashboardPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          anak.nama,
+                          anak.name,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
                         const SizedBox(height: 4.0),
                         Text(
-                          '${anak.umurBulan} bulan',
+                          '$umurBulan bulan',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.grey[600],
                               ),
@@ -178,7 +223,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
               ),
               const Divider(height: 24.0),
-              // --- Bagian Detail: Berat, Tinggi, Imunisasi ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -186,22 +230,22 @@ class _DashboardPageState extends State<DashboardPage> {
                     context,
                     icon: Icons.monitor_weight_outlined,
                     label: 'Berat',
-                    value: '${anak.beratBadan} kg',
+                    value: '${anak.birth_weight} kg',
                     color: Colors.blue,
                   ),
                   _buildInfoKolom(
                     context,
                     icon: Icons.height_outlined,
                     label: 'Tinggi',
-                    value: '${anak.tinggiBadan} cm',
+                    value: '${anak.birth_height} cm',
                     color: Colors.green,
                   ),
                   _buildInfoKolom(
                     context,
-                    icon: Icons.shield_outlined,
-                    label: 'Imunisasi',
-                    value: anak.statusImunisasi,
-                    color: Colors.orange,
+                    icon: Icons.bloodtype_outlined, // Icon diubah
+                    label: 'Gol. Darah', // Label diubah
+                    value: anak.blood_type ?? '-', // Menampilkan '-' jika data null
+                    color: Colors.red,
                   ),
                 ],
               ),
@@ -212,8 +256,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // [7] WIDGET BANTUAN: Untuk membuat kolom info (ikon, nilai, label)
-  // agar tidak menulis kode yang sama berulang kali.
   Widget _buildInfoKolom(BuildContext context, {
     required IconData icon,
     required String label,
