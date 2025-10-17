@@ -1,30 +1,44 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// test/widget_test.dart
 
+import 'package:SIMADU/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:projek_pertama_ku/main.dart';
+// Ganti 'simadu' dengan nama proyekmu yang sebenarnya
+import 'package:SIMADU/login_page.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  // Nama grup test, mendeskripsikan apa yang diuji
+  group('Auth Flow Widget Tests', () {
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Test case #1: Memverifikasi halaman login ditampilkan dengan benar
+    testWidgets('Login page shows email, password fields and a login button', (WidgetTester tester) async {
+      // 1. Bangun aplikasi kita. Karena kita menggunakan Supabase,
+      //    kita perlu memastikan inisialisasinya dipanggil.
+      //    Untuk testing, kita bisa langsung memanggil LoginPage jika AuthGate
+      //    membutuhkan setup Supabase yang lebih kompleks.
+      await tester.pumpWidget(const MyApp()); // MyApp akan menampilkan AuthGate -> LoginPage
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      // Tunggu widget selesai di-render
+      await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      // 2. Verifikasi bahwa widget-widget penting ada di layar
+      
+      // Cari TextFormField dengan teks label 'Email'
+      expect(find.widgetWithText(TextFormField, 'Email'), findsOneWidget);
+      
+      // Cari TextFormField dengan teks label 'Password'
+      expect(find.widgetWithText(TextFormField, 'Password'), findsOneWidget);
+      
+      // Cari tombol dengan teks 'Login'
+      expect(find.widgetWithText(ElevatedButton, 'Login'), findsOneWidget);
+
+      // Cari tombol teks dengan teks 'Belum punya akun? Register'
+      expect(find.widgetWithText(TextButton, 'Belum punya akun? Register'), findsOneWidget);
+
+      // Pastikan tidak ada teks 'Dashboard' (karena kita belum login)
+      expect(find.text('Dashboard'), findsNothing);
+    });
+
   });
 }

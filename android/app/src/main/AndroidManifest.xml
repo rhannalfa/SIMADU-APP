@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="projek_pertama_ku"
+        android:label="SIMADU"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
