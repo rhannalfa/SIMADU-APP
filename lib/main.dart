@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // 1. Impor package
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login/auth_login/auth_gate.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Muat file .env
+  // Muat file .env
   await dotenv.load(fileName: ".env");
 
-  // 3. Gunakan variabel dari dotenv untuk inisialisasi Supabase
+  // Gunakan variabel dari dotenv untuk inisialisasi Supabase
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!, // Gunakan variabel
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!, // Gunakan variabel
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
+
+  // 2. Inisialisasi data lokalisasi untuk Bahasa Indonesia ('id_ID')
+  await initializeDateFormatting('id_ID', null); 
 
   runApp(const MyApp());
 }
@@ -26,6 +30,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
+      debugShowCheckedModeBanner: false, //biar non debug
       title: 'Aplikasi Posyandu',
       home: AuthGate(),
     );

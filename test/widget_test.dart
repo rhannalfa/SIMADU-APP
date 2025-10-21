@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Ganti 'simadu' dengan nama proyekmu yang sebenarnya
-import 'package:SIMADU/login/login_page.dart';
 
 void main() {
   // Nama grup test, mendeskripsikan apa yang diuji

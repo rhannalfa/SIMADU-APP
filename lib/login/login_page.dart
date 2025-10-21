@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'register_page.dart'; // Import halaman registrasi
 
-// Ini adalah variabel global yang kita buat di main.dart
+// Variabel global Supabase
 final supabase = Supabase.instance.client;
 
 class LoginPage extends StatefulWidget {
@@ -14,13 +14,50 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
+  bool _rememberMe = false;
+  bool _obscurePassword = true;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  // --- FUNGSI REGISTER DIHAPUS DARI SINI ---
-  // Logikanya sudah pindah ke register_page.dart
+  @override
+  void initState() {
+    super.initState();
+    _loadUserEmail();
+  }
 
-  // --- FUNGSI UNTUK LOGIN --- (Tidak ada perubahan di sini)
+  // Memuat email dan status "Remember Me" dari SharedPreferences
+  Future<void> _loadUserEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? email = prefs.getString('email');
+      final bool? rememberMe = prefs.getBool('rememberMe');
+
+      if (rememberMe != null && rememberMe && email != null) {
+        setState(() {
+          _emailController.text = email;
+          _rememberMe = rememberMe;
+        });
+      }
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  // Menyimpan atau menghapus kredensial berdasarkan status "Remember Me"
+  Future<void> _handleRememberMe(bool value) async {
+    _rememberMe = value;
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberMe) {
+      await prefs.setString('email', _emailController.text);
+      await prefs.setBool('rememberMe', true);
+    } else {
+      await prefs.remove('email');
+      await prefs.remove('rememberMe');
+    }
+    setState(() {});
+  }
+
   Future<void> _login() async {
     setState(() {
       _isLoading = true;
@@ -31,14 +68,12 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // Navigasi tidak diperlukan di sini, AuthGate akan menanganinya
+      // Simpan kredensial jika "Remember Me" dicentang
+      await _handleRememberMe(_rememberMe);
     } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(e.message), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -69,67 +104,166 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Selamat Datang di Posyandu')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // --- FORM NAMA DIHAPUS DARI SINI ---
-
-              // --- FORM EMAIL ---
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // === HEADER BIRU ===
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 50),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1976D2),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(0),
+                  bottomRight: Radius.circular(4),
                 ),
-                keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 16),
-              // --- FORM PASSWORD ---
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 24),
-
-              // --- TOMBOL-TOMBOL ---
-              if (_isLoading)
-                const CircularProgressIndicator()
-              else
-                Column(
-                  children: [
-                    // Tombol Login
-                    ElevatedButton(
-                      onPressed: _login,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      child: const Text('Login'),
+              child: Column(
+                children: const [
+                  Icon(Icons.home, color: Colors.white, size: 36),
+                  SizedBox(height: 10),
+                  Text(
+                    "Sign in to your Account",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 12),
-                    // Tombol Register
-                    TextButton(
-                      // --- PERBAIKAN UTAMA DI SINI ---
-                      // Sekarang tombol ini berfungsi untuk pindah halaman
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const RegisterPage()),
-                        );
-                      },
-                      child: const Text('Belum punya akun? Register'),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    "Masukkan email dan kata sandi Anda untuk masuk",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // === KOTAK PUTIH FORM ===
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
                     ),
                   ],
                 ),
-            ],
-          ),
+                child: Column(
+                  children: [
+                    // LOGO
+                    Image.asset(
+                      'assets/images/simadu.png',
+                      height: 100,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // === EMAIL ===
+                    TextField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: const Icon(Icons.email),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // === PASSWORD ===
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(Icons.lock),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // === REMEMBER ME & LUPA PASSWORD ===
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                  setState(() {
+                                    _rememberMe = value ?? false;
+                                  });
+                              },
+                            ),
+                            const Text('Remember me'),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: () {},
+                          child: const Text(
+                            'Lupa Password?',
+                            style: TextStyle(color: Color(0xFF1976D2)),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // === TOMBOL LOGIN ===
+                    _isLoading
+                        ? const CircularProgressIndicator()
+                        : SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1976D2),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: _login,
+                              child: const Text(
+                                'Log In',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
