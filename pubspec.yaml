@@ -30,13 +30,17 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^1.5.0
   supabase_flutter: ^2.10.3
   flutter_dotenv: ^6.0.0
+  flutter_native_splash: ^2.3.1
+  provider: ^6.0.5
+  intl: ^0.18.1
+  connectivity_plus: ^6.0.3 
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +51,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -61,6 +66,9 @@ flutter:
 
   assets:
     - .env
+    - assets/images/
+    - assets/logo/
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -92,3 +100,32 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_native_splash:
+  # Warna latar belakang splash screen
+  color: "#FFFFFF" # Gunakan kode hex untuk warna (contoh: Putih)
+
+  # Path ke gambar logo Anda
+  image: assets/logo/logo.png
+
+  # (Opsional) Jika Anda ingin mendukung mode gelap
+  color_dark: "#000000" # Warna latar untuk mode gelap (contoh: Hitam)
+  image_dark: assets/logo/logo.png # Logo khusus untuk mode gelap
+
+  # Atur cara logo ditampilkan
+  android_12:
+    color: "#FFFFFF"
+    image: assets/logo/logo.png
+    # (Opsional) Atur ukuran ikon di Android 12+
+    icon_background_color: "#FFFFFF"
+
+  # Tambahkan di bagian paling bawah pubspec.yaml
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/logo.png" # Ikon utama untuk iOS dan Android versi lama
+  
+  # Konfigurasi khusus untuk Android Adaptive Icon
+  adaptive_icon_background: "#FFFFFF" # Bisa berupa warna hex
+  # atau gambar: "assets/icon/background.png"
+  adaptive_icon_foreground: "assets/logo/logo.png" # Logo tanpa background

@@ -1,51 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'profil_page.dart';
 
-// [MODIFIKASI 1]: Model Data disesuaikan dengan struktur tabel 'children' di Supabase.
-// - Nama properti diubah (e.g., nama -> name).
-// - Menambahkan properti 'nik'.
-// - Tipe data disesuaikan (e.g., id menjadi int, birth_date menjadi DateTime).
-// - Menghapus 'statusImunisasi' karena tidak ada di tabel.
-class Anak {
-  final int id; // Tipe data id di database adalah int8 (integer)
-  final String name;
-  final DateTime birth_date;
-  final String gender;
-  final double birth_weight;
-  final double birth_height;
-  final String? blood_type; // Nullable jika bisa kosong
-  final String? photo;      // Nullable jika bisa kosong
-  final String? nik;        // Nullable jika bisa kosong
-
-  Anak({
-    required this.id,
-    required this.name,
-    required this.birth_date,
-    required this.gender,
-    required this.birth_weight,
-    required this.birth_height,
-    this.blood_type,
-    this.photo,
-    this.nik,
-  });
-
-  // Factory constructor untuk membuat objek Anak dari data Map (JSON) yang diterima dari Supabase.
-  factory Anak.fromMap(Map<String, dynamic> map) {
-    return Anak(
-      id: map['id'],
-      name: map['name'] as String,
-      birth_date: DateTime.parse(map['birth_date'] as String),
-      gender: map['gender'] as String,
-      // Konversi dari numeric/double
-      birth_weight: (map['birth_weight'] as num).toDouble(),
-      birth_height: (map['birth_height'] as num).toDouble(),
-      blood_type: map['blood_type'] as String?,
-      photo: map['photo'] as String?,
-      nik: map['nik'] as String?,
-    );
-  }
-}
-
+// --- HALAMAN UTAMA (DASHBOARD) ---
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -54,58 +11,52 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  // [MODIFIKASI 2]: Data dummy dihapus dan diganti dengan Future.
-  // Future ini akan menampung proses pengambilan data dari Supabase.
-  late final Future<List<Anak>> _anakFuture;
+  final _supabase = Supabase.instance.client;
+  Map<String, dynamic>? _profile;
+  Map<String, dynamic>? _upcomingSchedule;
+  List<Map<String, dynamic>> _children = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // Memanggil fungsi untuk mengambil data saat halaman pertama kali dibuka.
-    _anakFuture = _getAnakData();
+    _loadDashboardData();
   }
 
-  // [MODIFIKASI 3]: Fungsi baru untuk mengambil data dari Supabase.
-  // Fungsi ini bersifat async dan akan mengembalikan List<Anak> di masa depan (Future).
-  Future<List<Anak>> _getAnakData() async {
-    // Mengambil data dari tabel 'children', diurutkan berdasarkan created_at terbaru.
-    final response = await Supabase.instance.client
-        .from('children')
-        .select()
-        .order('created_at', ascending: false);
-
-    // Supabase mengembalikan List<Map<String, dynamic>>.
-    // Kita perlu mengubahnya menjadi List<Anak> menggunakan factory constructor.
-    final List<Anak> anakList = response.map((data) {
-      return Anak.fromMap(data);
-    }).toList();
-
-    return anakList;
-  }
-
-  // Fungsi untuk menghitung umur dalam bulan dari tanggal lahir.
-  int _calculateAgeInMonths(DateTime birthDate) {
-    final now = DateTime.now();
-    int yearDiff = now.year - birthDate.year;
-    int monthDiff = now.month - birthDate.month;
-    if (monthDiff < 0) {
-      yearDiff--;
-      monthDiff += 12;
-    }
-    return yearDiff * 12 + monthDiff;
-  }
-  
-  Future<void> _logout() async {
+  Future<void> _loadDashboardData() async {
+    // Fungsi ini tidak diubah
     try {
-      await Supabase.instance.client.auth.signOut();
+      final userId = _supabase.auth.currentUser!.id;
+      final today = DateTime.now().toIso8601String();
+
+      final profileRes =
+          await _supabase.from('profiles').select().eq('id', userId).single();
+      _profile = profileRes;
+
+      final scheduleRes = await _supabase
+          .from('schedules')
+          .select()
+          .gte('schedule_date', today)
+          .order('schedule_date', ascending: true)
+          .limit(1);
+      if (scheduleRes.isNotEmpty) {
+        _upcomingSchedule = scheduleRes.first;
+      }
+
+      final childrenRes =
+          await _supabase.from('children').select().eq('parent_id', userId);
+      _children = List<Map<String, dynamic>>.from(childrenRes);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal logout: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Gagal memuat data: ${e.toString()}')),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -113,141 +64,101 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Data Anak Posyandu'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-            tooltip: 'Logout',
-          )
-        ],
-      ),
-      // [MODIFIKASI 4]: Menggunakan FutureBuilder untuk menampilkan data.
-      // Widget ini akan "membangun" UI berdasarkan status dari _anakFuture.
-      body: FutureBuilder<List<Anak>>(
-        future: _anakFuture,
-        builder: (context, snapshot) {
-          // 1. Saat data sedang dimuat
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          // 2. Jika terjadi error saat memuat data
-          if (snapshot.hasError) {
-            return Center(child: Text('Terjadi error: ${snapshot.error}'));
-          }
-          // 3. Jika data berhasil dimuat
-          if (snapshot.hasData) {
-            final dataAnak = snapshot.data!;
-            // Jika tidak ada data di database
-            if (dataAnak.isEmpty) {
-              return const Center(child: Text('Belum ada data anak.'));
-            }
-            // Jika ada data, tampilkan dalam ListView
-            return ListView.builder(
-              padding: const EdgeInsets.all(12.0),
-              itemCount: dataAnak.length,
-              itemBuilder: (context, index) {
-                final anak = dataAnak[index];
-                return _buildAnakCard(anak);
-              },
-            );
-          }
-          // State default (seharusnya tidak pernah terjadi)
-          return const Center(child: Text('Memulai...'));
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Fitur Tambah Data Anak')),
-          );
-        },
-        tooltip: 'Tambah Data Anak',
-        child: const Icon(Icons.add),
-      ),
+      // [DIUBAH] Warna background diubah menjadi putih polos
+      backgroundColor: Colors.white,
+      // [DIHAPUS] appBar: _buildAppBar() telah dihapus
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadDashboardData,
+              child: SafeArea( // Menambahkan SafeArea agar konten tidak terlalu ke atas
+                child: ListView(
+                  padding: const EdgeInsets.all(16.0),
+                  children: [
+                    // 1. Pesan Selamat Datang
+                    _buildWelcomeCard(),
+                    const SizedBox(height: 20),
+
+                    // 2. Kartu Banner Utama
+                    _buildHeroCard(),
+                    const SizedBox(height: 20),
+
+                    // 3. Kartu Statistik
+                    _buildStatsSection(),
+                    const SizedBox(height: 20),
+
+                    // 4. Kartu Kegiatan Terdekat
+                    _buildUpcomingActivityCard(),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
-  // [MODIFIKASI 5]: Widget kartu disesuaikan dengan model data yang baru.
-  Widget _buildAnakCard(Anak anak) {
-    // Hitung umur dari tanggal lahir
-    final umurBulan = _calculateAgeInMonths(anak.birth_date);
-    // URL foto default jika data photo di Supabase kosong (null)
-    final fotoUrl = anak.photo ?? 'https://i.pravatar.cc/150?u=${anak.id}';
+  // --- WIDGET BUILDER HELPERS ---
 
-    return Card(
-      elevation: 4.0,
-      margin: const EdgeInsets.only(bottom: 16.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
-      child: InkWell(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Melihat detail ${anak.name}')),
+  // [DIHAPUS] Seluruh fungsi _buildAppBar() sudah dihapus.
+
+Widget _buildWelcomeCard() {
+    final userName = _profile?['name'] ?? 'Pengguna';
+    const posyanduName = 'Posyandu Mawar';
+
+    // [DIUBAH] Dibungkus dengan GestureDetector untuk aksi klik
+    return GestureDetector(
+      onTap: () {
+        // Cek jika data profil tidak null sebelum navigasi
+        if (_profile != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              // Mengirim data profil ke halaman ProfilePage
+              builder: (context) => ProfilePage(profile: _profile!),
+            ),
           );
-        },
-        borderRadius: BorderRadius.circular(15.0),
+        } else {
+          // Tampilkan pesan jika data belum siap
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Data profil belum dimuat.')),
+          );
+        }
+      },
+      child: Card(
+        elevation: 3.0,
+        shadowColor: const Color(0x14000000),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundImage: NetworkImage(fotoUrl),
-                    backgroundColor: Colors.grey[200],
-                  ),
-                  const SizedBox(width: 16.0),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          anak.name,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                        const SizedBox(height: 4.0),
-                        Text(
-                          '$umurBulan bulan',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              const CircleAvatar(
+                radius: 24,
+                backgroundColor: Color(0xFF4A6A8A),
+                child: Icon(Icons.person, color: Colors.white, size: 28),
               ),
-              const Divider(height: 24.0),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildInfoKolom(
-                    context,
-                    icon: Icons.monitor_weight_outlined,
-                    label: 'Berat',
-                    value: '${anak.birth_weight} kg',
-                    color: Colors.blue,
-                  ),
-                  _buildInfoKolom(
-                    context,
-                    icon: Icons.height_outlined,
-                    label: 'Tinggi',
-                    value: '${anak.birth_height} cm',
-                    color: Colors.green,
-                  ),
-                  _buildInfoKolom(
-                    context,
-                    icon: Icons.bloodtype_outlined, // Icon diubah
-                    label: 'Gol. Darah', // Label diubah
-                    value: anak.blood_type ?? '-', // Menampilkan '-' jika data null
-                    color: Colors.red,
-                  ),
-                ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Halo, Bunda $userName 👋',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Selamat datang di $posyanduName',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -255,29 +166,116 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+  Widget _buildHeroCard() {
+    return Card(
+      color: const Color(0xFF60A5FA), // Warna biru sedikit lebih muda
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
+      elevation: 4.0,
+      shadowColor: Colors.blue.withOpacity(0.2),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            Text(
+              'Posyandu Sehat, Anak Ceria!',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Pantau pertumbuhan anak dan jadwal imunisasi dengan mudah melalui SIMADU.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            // TODO: Ganti Icon dengan gambar ilustrasi dari aset Anda
+            // Contoh: Image.asset('assets/images/illustration.png', height: 80)
+            const Icon(Icons.escalator_warning, color: Colors.white, size: 60),
+          ],
+        ),
+      ),
+    );
+  }
 
-  Widget _buildInfoKolom(BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
+  Widget _buildStatsSection() {
+    String totalAnak = _children.length.toString();
+    String jadwalAktif = _upcomingSchedule != null ? '1' : '0';
+
+    return Row(
       children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4.0),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 2.0),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Expanded(child: _buildStatCard('Total Anak', totalAnak)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildStatCard('Jadwal Aktif', jadwalAktif)),
       ],
+    );
+  }
+
+  Widget _buildStatCard(String title, String value) {
+    return Card(
+      elevation: 3.0,
+      shadowColor: const Color(0x14000000),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20.0),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF60A5FA),
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(title, style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpcomingActivityCard() {
+    return Card(
+      elevation: 3.0,
+      shadowColor: const Color(0x14000000),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0x1A2196F3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.edit_calendar,
+                  color: Color(0xFF60A5FA), size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Kegiatan Terdekat',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(
+                    _upcomingSchedule == null
+                        ? 'Tidak ada jadwal terdekat.'
+                        : (_upcomingSchedule!['title'] ?? 'Jadwal Posyandu'),
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

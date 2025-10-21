@@ -1,6 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../pages/dashboard_page.dart';
+// UBAH IMPORT INI
+import '../../pages/home_page.dart'; // <-- Arahkan ke HomePage
 import '../login_page.dart';
 
 class AuthGate extends StatelessWidget {
@@ -8,16 +10,16 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // StreamBuilder ini yang secara ajaib melakukan navigasi otomatis
     return StreamBuilder<AuthState>(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         // Cek jika ada sesi yang aktif
         if (snapshot.hasData && snapshot.data?.session != null) {
-          // Jika user sudah login, tampilkan Dashboard
-          return const DashboardPage();
+          // UBAH BARIS INI
+          // Jika user sudah login, tampilkan HomePage (wadah navigasi)
+          return const HomePage(); // <-- BUKAN DashboardPage
         } else {
-          // Jika tidak ada sesi (null setelah logout), tampilkan Login
+          // Jika tidak ada sesi, tampilkan Login
           return const LoginPage();
         }
       },
