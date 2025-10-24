@@ -41,6 +41,7 @@ dependencies:
   intl: ^0.18.1
   connectivity_plus: ^6.0.3 
   shared_preferences: ^2.2.2
+  font_awesome_flutter: ^10.6.0 # Add this line
 
 dev_dependencies:
   flutter_test:
